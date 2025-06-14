@@ -1,0 +1,5 @@
+<layout id="MainLayout">
+    <label id="StatusLabel" x="center" y="20%" color="Graphics.COLOR_WHITE" font="Graphics.FONT_LARGE" justification="Graphics.TEXT_JUSTIFY_CENTER" text="@Strings.AppName" />
+    <label id="CounterLabel" x="center" y="40%" color="Graphics.COLOR_RED" font="Graphics.FONT_MEDIUM" justification="Graphics.TEXT_JUSTIFY_CENTER" text="" />
+    <label id="InstructionLabel" x="center" y="60%" color="Graphics.COLOR_LT_GRAY" font="Graphics.FONT_SMALL" justification="Graphics.TEXT_JUSTIFY_CENTER" text="" />
+</layout>
