@@ -11,8 +11,8 @@ class WimHofBreathingView extends WatchUi.View {
     // Easy to modify - just change these values!
     
     private var _breathCount as Number = 30;           // Number of breathing cycles
-    private var _inhaleTime as Number = 2000;          // 2 seconds inhale (ms)
-    private var _exhaleTime as Number = 1000;          // 1 second exhale (ms)
+    private var _inhaleTime as Number = 3000;          // 3 seconds inhale (ms)
+    private var _exhaleTime as Number = 1500;          // 1.5 seconds exhale (ms)
     private var _holdReminderInterval as Number = 30000; // Hold reminder every 30s
     private var _recoveryHoldTime as Number = 15000;   // 15 seconds recovery hold
     
@@ -25,12 +25,42 @@ class WimHofBreathingView extends WatchUi.View {
     private const PHASE_COMPLETE = 5;
     
     // Vibration patterns (intensity: 0-100, duration in ms)
+    // Inhale: 3 quick taps (tap-tap-tap) for clear distinction
     private var _vibeInhale as Array<Attention.VibeProfile> = [
-        new Attention.VibeProfile(50, 100)  // Short buzz for inhale
+        new Attention.VibeProfile(60, 80),   // Tap 1
+        new Attention.VibeProfile(0, 60),    // Gap
+        new Attention.VibeProfile(60, 80),   // Tap 2
+        new Attention.VibeProfile(0, 60),    // Gap
+        new Attention.VibeProfile(60, 80)    // Tap 3
     ];
     
+    // Exhale: 1 smooth long buzz for clear contrast
     private var _vibeExhale as Array<Attention.VibeProfile> = [
-        new Attention.VibeProfile(70, 200)  // Medium buzz for exhale
+        new Attention.VibeProfile(70, 400)  // Smooth wave
+    ];
+    
+    // Milestone vibration: Strong pulse for every 10th breath
+    private var _vibeMilestone as Array<Attention.VibeProfile> = [
+        new Attention.VibeProfile(100, 200), // Strong pulse
+        new Attention.VibeProfile(0, 150)    // Gap before inhale pattern
+    ];
+    
+    // Warning tick: Added after exhale for last 5 breaths before hold
+    private var _vibeWarningTick as Array<Attention.VibeProfile> = [
+        new Attention.VibeProfile(0, 100),   // Small gap after exhale
+        new Attention.VibeProfile(80, 100)   // Warning tick
+    ];
+    
+    // Finale pattern: Drumroll for final breath (SDK max: 8 VibeProfile objects)
+    private var _vibeFinale as Array<Attention.VibeProfile> = [
+        new Attention.VibeProfile(60, 80),
+        new Attention.VibeProfile(0, 80),
+        new Attention.VibeProfile(80, 80),
+        new Attention.VibeProfile(0, 80),
+        new Attention.VibeProfile(100, 100),
+        new Attention.VibeProfile(0, 80),
+        new Attention.VibeProfile(100, 150),
+        new Attention.VibeProfile(100, 250)   // Strong finale buzz
     ];
     
     private var _vibeHoldStart as Array<Attention.VibeProfile> = [
@@ -102,7 +132,7 @@ class WimHofBreathingView extends WatchUi.View {
                 case PHASE_READY:
                     statusLabel.setText("Wim Hof");
                     counterLabel.setText("Press START");
-                    instructionLabel.setText("30 breaths + hold");
+                    instructionLabel.setText(_breathCount + " breaths + hold");
                     break;
                     
                 case PHASE_INHALE:
@@ -195,7 +225,20 @@ class WimHofBreathingView extends WatchUi.View {
     function doExhaleVibrate() as Void {
         if (_sessionActive && _phase == PHASE_EXHALE) {
             self.vibrate(_vibeExhale);
+            
+            // Add warning tick for last 5 breaths (except the final one which has finale)
+            if (_currentBreath >= (_breathCount - 4) && _currentBreath < _breathCount) {
+                var warningTimer = new Timer.Timer();
+                warningTimer.start(method(:vibrateWarningTick), 500, false);
+            }
+            
             WatchUi.requestUpdate(); // Another update request
+        }
+    }
+    
+    function vibrateWarningTick() as Void {
+        if (_sessionActive && _phase == PHASE_EXHALE) {
+            self.vibrate(_vibeWarningTick);
         }
     }
     
@@ -247,8 +290,26 @@ class WimHofBreathingView extends WatchUi.View {
     
     function doInhaleVibrate() as Void {
         if (_sessionActive && _phase == PHASE_INHALE) {
-            self.vibrate(_vibeInhale);
+            // Check for milestone breaths (every 10th) and finale
+            if (_currentBreath == _breathCount) {
+                // Final breath: Special finale pattern
+                self.vibrate(_vibeFinale);
+            } else if (_currentBreath % 10 == 0) {
+                // Every 10th breath: Milestone pulse + inhale pattern
+                self.vibrate(_vibeMilestone);
+                var delayTimer = new Timer.Timer();
+                delayTimer.start(method(:vibrateInhaleOnly), 350, false);
+            } else {
+                // Normal inhale pattern
+                self.vibrate(_vibeInhale);
+            }
             WatchUi.requestUpdate();
+        }
+    }
+    
+    function vibrateInhaleOnly() as Void {
+        if (_sessionActive && _phase == PHASE_INHALE) {
+            self.vibrate(_vibeInhale);
         }
     }
     
