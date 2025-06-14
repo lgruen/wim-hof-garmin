@@ -62,3 +62,4 @@ This app is not medical advice. The Wim Hof Method should be practiced safely an
 
 - Wim Hof for developing and sharing this breathing technique
 - Garmin for the Connect IQ platform
+- [Lucide Icons](https://lucide.dev) for the wind icon (ISC License)
