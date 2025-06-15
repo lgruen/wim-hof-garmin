@@ -97,6 +97,11 @@ class WimHofBreathingView extends WatchUi.View {
     // Timers
     private var _sessionTimer as Timer.Timer?;
     private var _holdReminderTimer as Timer.Timer?;
+    private var _secondTimer as Timer.Timer?;
+    
+    // Time tracking
+    private var _holdSeconds as Number = 0;
+    private var _recoverySeconds as Number = 0;
 
     function initialize() {
         View.initialize();
@@ -113,6 +118,13 @@ class WimHofBreathingView extends WatchUi.View {
 
     function getPhase() as Number {
         return _phase;
+    }
+    
+    // ==================== HELPER FUNCTIONS ====================
+    function formatTime(totalSeconds as Number) as String {
+        var minutes = totalSeconds / 60;
+        var seconds = totalSeconds % 60;
+        return Lang.format("$1$:$2$", [minutes, seconds.format("%02d")]);
     }
 
     function onUpdate(dc as Dc) as Void {
@@ -149,13 +161,13 @@ class WimHofBreathingView extends WatchUi.View {
                     
                 case PHASE_HOLD:
                     statusLabel.setText("HOLD");
-                    counterLabel.setText("Breath retained");
+                    counterLabel.setText(formatTime(_holdSeconds));
                     instructionLabel.setText("Press SELECT\nwhen ready");
                     break;
                     
                 case PHASE_RECOVERY:
                     statusLabel.setText("RECOVERY");
-                    counterLabel.setText("Hold for 15s");
+                    counterLabel.setText(formatTime(_recoverySeconds));
                     instructionLabel.setText("Deep breath & hold");
                     break;
                     
@@ -172,6 +184,17 @@ class WimHofBreathingView extends WatchUi.View {
     function vibrate(pattern as Array<Attention.VibeProfile>) as Void {
         if (Attention has :vibrate) {
             Attention.vibrate(pattern);
+        }
+    }
+    
+    // ==================== TIMER FUNCTIONS ====================
+    function updateSecondTimer() as Void {
+        if (_phase == PHASE_HOLD) {
+            _holdSeconds++;
+            WatchUi.requestUpdate();
+        } else if (_phase == PHASE_RECOVERY) {
+            _recoverySeconds++;
+            WatchUi.requestUpdate();
         }
     }
 
@@ -246,6 +269,8 @@ class WimHofBreathingView extends WatchUi.View {
         _sessionActive = false;
         _phase = PHASE_READY;
         _currentBreath = 0;
+        _holdSeconds = 0;
+        _recoverySeconds = 0;
         
         self.clearAllTimers();
         WatchUi.requestUpdate();
@@ -259,6 +284,10 @@ class WimHofBreathingView extends WatchUi.View {
         if (_holdReminderTimer != null) {
             _holdReminderTimer.stop();
             _holdReminderTimer = null;
+        }
+        if (_secondTimer != null) {
+            _secondTimer.stop();
+            _secondTimer = null;
         }
     }
 
@@ -345,6 +374,11 @@ class WimHofBreathingView extends WatchUi.View {
             self.vibrate(_vibeHoldStart);
             WatchUi.requestUpdate();
             
+            // Start the second timer (with initial delay)
+            _holdSeconds = 0;
+            _secondTimer = new Timer.Timer();
+            _secondTimer.start(self.method(:updateSecondTimer), 1000, true);
+            
             // Set up reminder vibrations every 30 seconds
             self.scheduleHoldReminder();
         }
@@ -394,9 +428,18 @@ class WimHofBreathingView extends WatchUi.View {
             self.vibrate(_vibeRecoveryStart);
             WatchUi.requestUpdate();
             
+            // Stop and restart the second timer for recovery phase
+            if (_secondTimer != null) {
+                _secondTimer.stop();
+                _secondTimer = null;
+            }
+            _recoverySeconds = 0;
+            _secondTimer = new Timer.Timer();
+            _secondTimer.start(self.method(:updateSecondTimer), 1000, true);
+            
             // End recovery after set time
             _sessionTimer = new Timer.Timer();
-            _sessionTimer.start(self.method(:completeSession), _recoveryHoldTime - 50, false);
+            _sessionTimer.start(self.method(:completeSession), _recoveryHoldTime, false);
         }
     }
     
